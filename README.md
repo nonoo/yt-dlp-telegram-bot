@@ -77,6 +77,12 @@ variable. Available OS environment variables are:
 - `ALLOWED_USERIDS`
 - `ADMIN_USERIDS`
 - `ALLOWED_GROUPIDS`
+- `YTDLP_COOKIES`
+
+The contents of the `YTDLP_COOKIES` environment variable will be written to the
+file `/tmp/ytdlp-cookies.txt`. This will be used by `yt-dlp` if it is running
+in a docker container, as the `yt-dlp.conf` file in the container points to this
+cookie file.
 
 ## Supported commands
 
