@@ -4,7 +4,7 @@ This bot downloads videos from various supported sources
 (see [yt-dlp](https://github.com/yt-dlp/yt-dlp) and then re-uploads them
 to Telegram, so they can be viewed with Telegram's built-in video player.
 
-<p align="center"><img src="screenshot.png?raw=true"/></p>
+<p align="center"><img src="demo.gif?raw=true"/></p>
 
 The bot displays the progress and further information during processing by
 responding to the message with the URL. Requests are queued, only one gets
