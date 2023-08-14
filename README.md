@@ -70,7 +70,7 @@ All command line arguments can be set through OS environment variables.
 Note that using a command line argument overwrites a setting by the environment
 variable. Available OS environment variables are:
 
-- `APP_ID`
+- `API_ID`
 - `API_HASH`
 - `BOT_TOKEN`
 - `YTDLP_PATH`
