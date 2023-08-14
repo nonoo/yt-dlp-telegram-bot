@@ -14,10 +14,5 @@ COPY --from=prep yt-dlp /usr/local/bin
 RUN chmod 755 /usr/local/bin/yt-dlp
 COPY --from=builder /app/yt-dlp-telegram-bot /app/yt-dlp-telegram-bot
 
-CMD ["/app/yt-dlp-telegram-bot"]
-ENV API_ID=
-ENV API_HASH=
-ENV BOT_TOKEN=
-ENV ALLOWED_USERIDS=
-ENV ADMIN_USERIDS=
-ENV ALLOWED_GROUPIDS=
+ENTRYPOINT ["/app/yt-dlp-telegram-bot"]
+ENV API_ID= API_HASH= BOT_TOKEN= ALLOWED_USERIDS= ADMIN_USERIDS= ALLOWED_GROUPIDS=
