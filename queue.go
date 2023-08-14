@@ -139,6 +139,7 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 	qEntry.editReply(ctx, processStartStr)
 
 	var disableProgressPercentUpdate bool
+	var progressPercentUpdateMutex sync.Mutex
 	var lastProgressPercentUpdateAt time.Time
 	var lastProgressPercent int
 	var progressUpdateTimer *time.Timer
@@ -162,6 +163,9 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 			qEntry.editReply(ctx, "🎬 Preparing download...\n"+sourceCodecInfo)
 		},
 		UpdateProgressPercentFunc: func(progressPercent int) {
+			progressPercentUpdateMutex.Lock()
+			defer progressPercentUpdateMutex.Unlock()
+
 			if disableProgressPercentUpdate || lastProgressPercent == progressPercent {
 				return
 			}
@@ -196,24 +200,35 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 	r, err := downloader.DownloadAndConvertURL(qEntry.Ctx, qEntry.OrigMsg.Message)
 	if err != nil {
 		fmt.Println("  error downloading:", err)
+		progressPercentUpdateMutex.Lock()
+		disableProgressPercentUpdate = true
+		progressPercentUpdateMutex.Unlock()
 		qEntry.editReply(ctx, fmt.Sprint(errorStr+": ", err))
 		return
 	}
 
 	// Feeding the returned io.ReadCloser to the uploader.
 	fmt.Println("  processing...")
+	progressPercentUpdateMutex.Lock()
 	q.updateProgress(ctx, qEntry, lastProgressPercent, sourceCodecInfo)
+	progressPercentUpdateMutex.Unlock()
+
 	err = uploadFile(ctx, qEntry.OrigEntities, qEntry.OrigMsgUpdate, r)
 	if err != nil {
 		fmt.Println("  error processing:", err)
+		progressPercentUpdateMutex.Lock()
 		disableProgressPercentUpdate = true
+		progressPercentUpdateMutex.Unlock()
 		r.Close()
 		qEntry.editReply(ctx, fmt.Sprint(errorStr+": ", err))
 		return
 	}
+	progressPercentUpdateMutex.Lock()
 	disableProgressPercentUpdate = true
+	progressPercentUpdateMutex.Unlock()
 	r.Close()
 
+	progressPercentUpdateMutex.Lock()
 	if qEntry.Canceled {
 		fmt.Print("  canceled\n")
 		qEntry.editReply(ctx, canceledStr+": "+getProgressbar(lastProgressPercent, progressBarLength)+"\n"+sourceCodecInfo)
@@ -221,6 +236,7 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 		fmt.Print("  progress: 100%\n")
 		qEntry.editReply(ctx, processDoneStr+": "+getProgressbar(100, progressBarLength)+"\n"+sourceCodecInfo)
 	}
+	progressPercentUpdateMutex.Unlock()
 	qEntry.sendTypingCancelAction(ctx)
 }
 
