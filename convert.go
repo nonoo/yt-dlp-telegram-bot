@@ -21,7 +21,7 @@ import (
 const probeTimeout = 10 * time.Second
 const maxFFmpegProbeBytes = 20 * 1024 * 1024
 
-var compatibleVideoCodecs = []string{"h264", "vp9"}
+var compatibleVideoCodecs = []string{"h264", "vp9", "hevc"}
 var compatibleAudioCodecs = []string{"aac", "opus", "mp3"}
 
 type ffmpegProbeDataStreamsStream struct {
