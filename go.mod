@@ -5,6 +5,7 @@ go 1.20
 replace github.com/wader/goutubedl => github.com/nonoo/goutubedl v0.0.0-20230814114826-c1dcced79138
 
 require (
+	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-github/v53 v53.2.0
 	github.com/gotd/td v0.84.0
 	github.com/u2takey/ffmpeg-go v0.5.0

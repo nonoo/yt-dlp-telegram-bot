@@ -13,7 +13,7 @@ const downloadAndConvertTimeout = 5 * time.Minute
 
 type ProbeStartCallbackFunc func(ctx context.Context)
 type ConvertStartCallbackFunc func(ctx context.Context, videoCodecs, audioCodecs, convertActionsNeeded string)
-type UpdateProgressPercentCallbackFunc func(progressPercent int)
+type UpdateProgressPercentCallbackFunc func(progressStr string, progressPercent int)
 
 type Downloader struct {
 	ProbeStartFunc            ProbeStartCallbackFunc

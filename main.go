@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"os"
@@ -21,23 +20,6 @@ var dlQueue DownloadQueue
 
 var telegramUploader *uploader.Uploader
 var telegramSender *message.Sender
-
-func uploadFile(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, f io.ReadCloser) error {
-	upload, err := telegramUploader.FromReader(ctx, "yt-dlp", f)
-	if err != nil {
-		return fmt.Errorf("uploading %w", err)
-	}
-
-	// Now we have uploaded file handle, sending it as styled message. First, preparing message.
-	document := message.UploadedDocument(upload).Video()
-
-	// Sending message with media.
-	if _, err := telegramSender.Answer(entities, u).Media(ctx, document); err != nil {
-		return fmt.Errorf("send: %w", err)
-	}
-
-	return nil
-}
 
 func handleCmdDLP(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, msg *tg.Message) {
 	// Check if message is an URL.
@@ -155,7 +137,7 @@ func main() {
 
 		api := client.API()
 
-		telegramUploader = uploader.NewUploader(api)
+		telegramUploader = uploader.NewUploader(api).WithProgress(dlUploader)
 		telegramSender = message.NewSender(api).WithUploader(telegramUploader)
 
 		dlQueue.Init(ctx)

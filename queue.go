@@ -12,7 +12,8 @@ import (
 
 const processStartStr = "🔍 Getting information..."
 const processStr = "🔨 Processing"
-const processDoneStr = "🏁 Processing"
+const uploadStr = "☁️ Uploading"
+const uploadDoneStr = "🏁 Uploading"
 const errorStr = "❌ Error"
 const canceledStr = "❌ Canceled"
 
@@ -60,10 +61,26 @@ func (e *DownloadQueueEntry) editReply(ctx context.Context, s string) {
 	e.sendTypingAction(ctx)
 }
 
+type currentlyDownloadedEntryType struct {
+	disableProgressPercentUpdate bool
+	progressPercentUpdateMutex   sync.Mutex
+	lastProgressPercentUpdateAt  time.Time
+	lastProgressPercent          int
+	lastDisplayedProgressPercent int
+	progressUpdateTimer          *time.Timer
+
+	sourceCodecInfo string
+	progressInfo    string
+}
+
 type DownloadQueue struct {
+	ctx context.Context
+
 	mutex          sync.Mutex
 	entries        []DownloadQueueEntry
 	processReqChan chan bool
+
+	currentlyDownloadedEntry currentlyDownloadedEntryType
 }
 
 func (e *DownloadQueue) getQueuePositionString(pos int) string {
@@ -115,17 +132,56 @@ func (q *DownloadQueue) CancelCurrentEntry(ctx context.Context, entities tg.Enti
 	q.mutex.Unlock()
 }
 
-func (q *DownloadQueue) updateProgress(ctx context.Context, qEntry *DownloadQueueEntry, progressPercent int, sourceCodecInfo string) {
+func (q *DownloadQueue) updateProgress(ctx context.Context, qEntry *DownloadQueueEntry, progressStr string, progressPercent int) {
 	if progressPercent < 0 {
-		qEntry.editReply(ctx, processStr+"... (no progress available)\n"+sourceCodecInfo)
+		qEntry.editReply(ctx, progressStr+"... (no progress available)\n"+q.currentlyDownloadedEntry.sourceCodecInfo)
 		return
 	}
 	if progressPercent == 0 {
-		qEntry.editReply(ctx, processStr+"...\n"+sourceCodecInfo)
+		qEntry.editReply(ctx, progressStr+"..."+q.currentlyDownloadedEntry.progressInfo+"\n"+q.currentlyDownloadedEntry.sourceCodecInfo)
 		return
 	}
 	fmt.Print("  progress: ", progressPercent, "%\n")
-	qEntry.editReply(ctx, processStr+": "+getProgressbar(progressPercent, progressBarLength)+"\n"+sourceCodecInfo)
+	qEntry.editReply(ctx, progressStr+": "+getProgressbar(progressPercent, progressBarLength)+q.currentlyDownloadedEntry.progressInfo+"\n"+q.currentlyDownloadedEntry.sourceCodecInfo)
+	q.currentlyDownloadedEntry.lastDisplayedProgressPercent = progressPercent
+}
+
+func (q *DownloadQueue) HandleProgressPercentUpdate(progressStr string, progressPercent int) {
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+	defer q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
+
+	if q.currentlyDownloadedEntry.disableProgressPercentUpdate || q.currentlyDownloadedEntry.lastProgressPercent == progressPercent {
+		return
+	}
+	q.currentlyDownloadedEntry.lastProgressPercent = progressPercent
+	if progressPercent < 0 {
+		q.currentlyDownloadedEntry.disableProgressPercentUpdate = true
+		q.updateProgress(q.ctx, &q.entries[0], progressStr, progressPercent)
+		return
+	}
+
+	if q.currentlyDownloadedEntry.progressUpdateTimer != nil {
+		q.currentlyDownloadedEntry.progressUpdateTimer.Stop()
+		select {
+		case <-q.currentlyDownloadedEntry.progressUpdateTimer.C:
+		default:
+		}
+	}
+
+	timeElapsedSinceLastUpdate := time.Since(q.currentlyDownloadedEntry.lastProgressPercentUpdateAt)
+	if timeElapsedSinceLastUpdate < maxProgressPercentUpdateInterval {
+		q.currentlyDownloadedEntry.progressUpdateTimer = time.AfterFunc(maxProgressPercentUpdateInterval-timeElapsedSinceLastUpdate, func() {
+			q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+			if !q.currentlyDownloadedEntry.disableProgressPercentUpdate {
+				q.updateProgress(q.ctx, &q.entries[0], progressStr, progressPercent)
+				q.currentlyDownloadedEntry.lastProgressPercentUpdateAt = time.Now()
+			}
+			q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
+		})
+		return
+	}
+	q.updateProgress(q.ctx, &q.entries[0], progressStr, progressPercent)
+	q.currentlyDownloadedEntry.lastProgressPercentUpdateAt = time.Now()
 }
 
 func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQueueEntry) {
@@ -138,109 +194,71 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 
 	qEntry.editReply(ctx, processStartStr)
 
-	var disableProgressPercentUpdate bool
-	var progressPercentUpdateMutex sync.Mutex
-	var lastProgressPercentUpdateAt time.Time
-	var lastProgressPercent int
-	var progressUpdateTimer *time.Timer
-	var sourceCodecInfo string
 	downloader := Downloader{
 		ProbeStartFunc: func(ctx context.Context) {
 			qEntry.editReply(ctx, "🎬 Getting video format...")
 		},
 		ConvertStartFunc: func(ctx context.Context, videoCodecs, audioCodecs, convertActionsNeeded string) {
-			sourceCodecInfo = "🎬 Source: " + videoCodecs
+			q.currentlyDownloadedEntry.sourceCodecInfo = "🎬 Source: " + videoCodecs
 			if audioCodecs == "" {
-				sourceCodecInfo += ", no audio"
+				q.currentlyDownloadedEntry.sourceCodecInfo += ", no audio"
 			} else {
-				sourceCodecInfo += " / " + audioCodecs
+				q.currentlyDownloadedEntry.sourceCodecInfo += " / " + audioCodecs
 			}
 			if convertActionsNeeded == "" {
-				sourceCodecInfo += " (no conversion needed)"
+				q.currentlyDownloadedEntry.sourceCodecInfo += " (no conversion needed)"
 			} else {
-				sourceCodecInfo += " (converting: " + convertActionsNeeded + ")"
+				q.currentlyDownloadedEntry.sourceCodecInfo += " (converting: " + convertActionsNeeded + ")"
 			}
-			qEntry.editReply(ctx, "🎬 Preparing download...\n"+sourceCodecInfo)
+			qEntry.editReply(ctx, "🎬 Preparing download...\n"+q.currentlyDownloadedEntry.sourceCodecInfo)
 		},
-		UpdateProgressPercentFunc: func(progressPercent int) {
-			progressPercentUpdateMutex.Lock()
-			defer progressPercentUpdateMutex.Unlock()
-
-			if disableProgressPercentUpdate || lastProgressPercent == progressPercent {
-				return
-			}
-			lastProgressPercent = progressPercent
-			if progressPercent < 0 {
-				disableProgressPercentUpdate = true
-				q.updateProgress(ctx, qEntry, progressPercent, sourceCodecInfo)
-				return
-			}
-
-			if progressUpdateTimer != nil {
-				progressUpdateTimer.Stop()
-				select {
-				case <-progressUpdateTimer.C:
-				default:
-				}
-			}
-
-			timeElapsedSinceLastUpdate := time.Since(lastProgressPercentUpdateAt)
-			if timeElapsedSinceLastUpdate < maxProgressPercentUpdateInterval {
-				progressUpdateTimer = time.AfterFunc(maxProgressPercentUpdateInterval-timeElapsedSinceLastUpdate, func() {
-					q.updateProgress(ctx, qEntry, progressPercent, sourceCodecInfo)
-					lastProgressPercentUpdateAt = time.Now()
-				})
-				return
-			}
-			q.updateProgress(ctx, qEntry, progressPercent, sourceCodecInfo)
-			lastProgressPercentUpdateAt = time.Now()
-		},
+		UpdateProgressPercentFunc: q.HandleProgressPercentUpdate,
 	}
 
 	r, err := downloader.DownloadAndConvertURL(qEntry.Ctx, qEntry.OrigMsg.Message)
 	if err != nil {
 		fmt.Println("  error downloading:", err)
-		progressPercentUpdateMutex.Lock()
-		disableProgressPercentUpdate = true
-		progressPercentUpdateMutex.Unlock()
+		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+		q.currentlyDownloadedEntry.disableProgressPercentUpdate = true
+		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 		qEntry.editReply(ctx, fmt.Sprint(errorStr+": ", err))
 		return
 	}
 
 	// Feeding the returned io.ReadCloser to the uploader.
 	fmt.Println("  processing...")
-	progressPercentUpdateMutex.Lock()
-	q.updateProgress(ctx, qEntry, lastProgressPercent, sourceCodecInfo)
-	progressPercentUpdateMutex.Unlock()
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+	q.updateProgress(ctx, qEntry, processStr, q.currentlyDownloadedEntry.lastProgressPercent)
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 
-	err = uploadFile(ctx, qEntry.OrigEntities, qEntry.OrigMsgUpdate, r)
+	err = dlUploader.UploadFile(qEntry.Ctx, qEntry.OrigEntities, qEntry.OrigMsgUpdate, r)
 	if err != nil {
 		fmt.Println("  error processing:", err)
-		progressPercentUpdateMutex.Lock()
-		disableProgressPercentUpdate = true
-		progressPercentUpdateMutex.Unlock()
+		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+		q.currentlyDownloadedEntry.disableProgressPercentUpdate = true
+		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 		r.Close()
 		qEntry.editReply(ctx, fmt.Sprint(errorStr+": ", err))
 		return
 	}
-	progressPercentUpdateMutex.Lock()
-	disableProgressPercentUpdate = true
-	progressPercentUpdateMutex.Unlock()
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
+	q.currentlyDownloadedEntry.disableProgressPercentUpdate = true
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 	r.Close()
 
-	progressPercentUpdateMutex.Lock()
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
 	if qEntry.Canceled {
 		fmt.Print("  canceled\n")
-		qEntry.editReply(ctx, canceledStr+": "+getProgressbar(lastProgressPercent, progressBarLength)+"\n"+sourceCodecInfo)
-	} else if lastProgressPercent < 100 {
+		q.updateProgress(ctx, qEntry, canceledStr, q.currentlyDownloadedEntry.lastProgressPercent)
+	} else if q.currentlyDownloadedEntry.lastDisplayedProgressPercent < 100 {
 		fmt.Print("  progress: 100%\n")
-		qEntry.editReply(ctx, processDoneStr+": "+getProgressbar(100, progressBarLength)+"\n"+sourceCodecInfo)
+		q.updateProgress(ctx, qEntry, uploadDoneStr, 100)
 	}
-	progressPercentUpdateMutex.Unlock()
+	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 	qEntry.sendTypingCancelAction(ctx)
 }
 
-func (q *DownloadQueue) processor(ctx context.Context) {
+func (q *DownloadQueue) processor() {
 	for {
 		q.mutex.Lock()
 		if (len(q.entries)) == 0 {
@@ -251,16 +269,18 @@ func (q *DownloadQueue) processor(ctx context.Context) {
 
 		// Updating queue positions for all waiting entries.
 		for i := 1; i < len(q.entries); i++ {
-			q.entries[i].editReply(ctx, q.getQueuePositionString(i))
-			q.entries[i].sendTypingCancelAction(ctx)
+			q.entries[i].editReply(q.ctx, q.getQueuePositionString(i))
+			q.entries[i].sendTypingCancelAction(q.ctx)
 		}
 
-		q.entries[0].Ctx, q.entries[0].CtxCancel = context.WithTimeout(ctx, downloadAndConvertTimeout)
+		q.entries[0].Ctx, q.entries[0].CtxCancel = context.WithTimeout(q.ctx, downloadAndConvertTimeout)
 
 		qEntry := &q.entries[0]
 		q.mutex.Unlock()
 
-		q.processQueueEntry(ctx, qEntry)
+		q.currentlyDownloadedEntry = currentlyDownloadedEntryType{}
+
+		q.processQueueEntry(q.ctx, qEntry)
 
 		q.mutex.Lock()
 		q.entries[0].CtxCancel()
@@ -273,6 +293,7 @@ func (q *DownloadQueue) processor(ctx context.Context) {
 }
 
 func (q *DownloadQueue) Init(ctx context.Context) {
+	q.ctx = ctx
 	q.processReqChan = make(chan bool)
-	go q.processor(ctx)
+	go q.processor()
 }

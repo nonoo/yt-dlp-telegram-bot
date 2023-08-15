@@ -12,10 +12,9 @@ processed at a time.
 
 The bot uses the [Telegram MTProto API](https://github.com/gotd/td), which
 supports larger video uploads than the default 50MB with the standard
-Telegram bot API. Videos are not saved on disk, they are simultaneously
-uploaded from the source to Telegram. Incompatible video and audio streams
-are automatically converted to match those which are supported by Telegram's
-built-in video player.
+Telegram bot API. Videos are not saved on disk. Incompatible video and audio
+streams are automatically converted to match those which are supported by
+Telegram's built-in video player.
 
 The only dependencies are [yt-dlp](https://github.com/yt-dlp/yt-dlp) and
 [ffmpeg](https://github.com/FFmpeg/FFmpeg). Tested on Linux, but should be
