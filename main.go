@@ -92,7 +92,7 @@ func handleMsg(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage
 			return nil
 		default:
 			fmt.Println("  (invalid cmd)")
-			if fromGroup != nil {
+			if fromGroup == nil {
 				_, _ = telegramSender.Reply(entities, u).Text(ctx, errorStr+": invalid command")
 			}
 			return nil
