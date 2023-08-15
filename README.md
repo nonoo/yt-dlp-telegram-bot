@@ -1,7 +1,7 @@
 # yt-dlp-telegram-bot
 
 This bot downloads videos from various supported sources
-(see [yt-dlp](https://github.com/yt-dlp/yt-dlp) and then re-uploads them
+(see [yt-dlp](https://github.com/yt-dlp/yt-dlp)) and then re-uploads them
 to Telegram, so they can be viewed with Telegram's built-in video player.
 
 <p align="center"><img src="demo.gif?raw=true"/></p>
