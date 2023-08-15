@@ -99,7 +99,9 @@ func handleMsg(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage
 		}
 	}
 
-	handleCmdDLP(ctx, entities, u, msg)
+	if fromGroup == nil {
+		handleCmdDLP(ctx, entities, u, msg)
+	}
 	return nil
 }
 
