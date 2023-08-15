@@ -34,6 +34,9 @@ func (p *Uploader) UploadFile(ctx context.Context, entities tg.Entities, u *tg.U
 		if n == 0 {
 			break
 		}
+		if params.MaxSize > 0 && buf.Len() > int(params.MaxSize) {
+			return fmt.Errorf("file is too big, max. allowed size is %s", humanize.BigBytes(big.NewInt(int64(params.MaxSize))))
+		}
 		buf.Write(b[:n])
 	}
 

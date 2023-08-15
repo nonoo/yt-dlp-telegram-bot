@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/wader/goutubedl"
 	"golang.org/x/exp/slices"
 )
@@ -20,6 +21,8 @@ type paramsType struct {
 	AllowedUserIDs  []int64
 	AdminUserIDs    []int64
 	AllowedGroupIDs []int64
+
+	MaxSize int64
 }
 
 var params paramsType
@@ -40,6 +43,8 @@ func (p *paramsType) Init() error {
 	flag.StringVar(&adminUserIDs, "admin-user-ids", "", "admin telegram user ids")
 	var allowedGroupIDs string
 	flag.StringVar(&allowedGroupIDs, "allowed-group-ids", "", "allowed telegram group ids")
+	var maxSize string
+	flag.StringVar(&maxSize, "max-size", "", "allowed max size of video files")
 	flag.Parse()
 
 	var err error
@@ -51,7 +56,7 @@ func (p *paramsType) Init() error {
 	}
 	p.ApiID, err = strconv.Atoi(apiID)
 	if err != nil {
-		return fmt.Errorf("invalid env var API_ID")
+		return fmt.Errorf("invalid api_id")
 	}
 
 	if p.ApiHash == "" {
@@ -89,7 +94,7 @@ func (p *paramsType) Init() error {
 		}
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			return fmt.Errorf("env var ALLOWED_USERIDS contains invalid user ID: " + idStr)
+			return fmt.Errorf("allowed user ids contains invalid user ID: " + idStr)
 		}
 		p.AllowedUserIDs = append(p.AllowedUserIDs, id)
 	}
@@ -104,7 +109,7 @@ func (p *paramsType) Init() error {
 		}
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			return fmt.Errorf("env var ADMIN_USERIDS contains invalid user ID: " + idStr)
+			return fmt.Errorf("admin ids contains invalid user ID: " + idStr)
 		}
 		p.AdminUserIDs = append(p.AdminUserIDs, id)
 		if !slices.Contains(p.AllowedUserIDs, id) {
@@ -122,9 +127,20 @@ func (p *paramsType) Init() error {
 		}
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			return fmt.Errorf("env var ALLOWED_GROUPIDS contains invalid group ID: " + idStr)
+			return fmt.Errorf("allowed group ids contains invalid group ID: " + idStr)
 		}
 		p.AllowedGroupIDs = append(p.AllowedUserIDs, id)
+	}
+
+	if maxSize == "" {
+		maxSize = os.Getenv("MAX_SIZE")
+	}
+	if maxSize != "" {
+		b, err := humanize.ParseBigBytes(maxSize)
+		if err != nil {
+			return fmt.Errorf("invalid max size: %w", err)
+		}
+		p.MaxSize = b.Int64()
 	}
 
 	// Writing env. var YTDLP_COOKIES contents to a file.
