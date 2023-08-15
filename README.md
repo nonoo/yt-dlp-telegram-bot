@@ -65,6 +65,9 @@ Other user/group IDs can be set with the `-allowed-user-ids` and
 You can get Telegram user IDs by writing a message to the bot and checking
 the app's log, as it logs all incoming messages.
 
+You can set a max. upload file size limit with the `-max-size` argument.
+Example: `-max-size 512MB`
+
 All command line arguments can be set through OS environment variables.
 Note that using a command line argument overwrites a setting by the environment
 variable. Available OS environment variables are:
@@ -76,6 +79,7 @@ variable. Available OS environment variables are:
 - `ALLOWED_USERIDS`
 - `ADMIN_USERIDS`
 - `ALLOWED_GROUPIDS`
+- `MAX_SIZE`
 - `YTDLP_COOKIES`
 
 The contents of the `YTDLP_COOKIES` environment variable will be written to the
