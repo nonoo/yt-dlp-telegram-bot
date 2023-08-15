@@ -90,6 +90,14 @@ func handleMsg(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage
 		case "/dlpcancel":
 			handleCmdDLPCancel(ctx, entities, u, msg)
 			return nil
+		case "/start":
+			fmt.Println("  (start cmd)")
+			if fromGroup == nil {
+				_, _ = telegramSender.Reply(entities, u).Text(ctx, "🤖 Welcome! This bot downloads videos from various "+
+					"supported sources and then re-uploads them to Telegram, so they can be viewed with Telegram's built-in "+
+					"video player.\n\nMore info: https://github.com/nonoo/yt-dlp-telegram-bot")
+			}
+			return nil
 		default:
 			fmt.Println("  (invalid cmd)")
 			if fromGroup == nil {
