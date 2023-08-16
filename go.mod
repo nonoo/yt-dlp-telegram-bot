@@ -2,7 +2,7 @@ module github.com/nonoo/yt-dlp-telegram-bot
 
 go 1.20
 
-replace github.com/wader/goutubedl => github.com/nonoo/goutubedl v0.0.0-20230814114826-c1dcced79138
+replace github.com/wader/goutubedl => github.com/nonoo/goutubedl v0.0.0-20230816152152-00e766d98356
 
 require (
 	github.com/dustin/go-humanize v1.0.1
