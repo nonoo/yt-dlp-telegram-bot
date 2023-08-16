@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
