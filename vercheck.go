@@ -22,12 +22,10 @@ func ytdlpVersionCheck(ctx context.Context) (latestVersion, currentVersion strin
 	}
 	latestVersion = release.GetTagName()
 
-	out, err := exec.Command(goutubedl.Path, "--version").Output()
+	currentVersion, err = goutubedl.Version(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf("getting current yt-dlp version: %w", err)
 	}
-
-	currentVersion = strings.TrimSpace(string(out))
 	return
 }
 
