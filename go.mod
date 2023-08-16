@@ -2,14 +2,14 @@ module github.com/nonoo/yt-dlp-telegram-bot
 
 go 1.20
 
-replace github.com/wader/goutubedl => github.com/nonoo/goutubedl v0.0.0-20230816152152-00e766d98356
+replace github.com/wader/goutubedl => github.com/nonoo/goutubedl v0.0.0-20230816153232-2c86f087bc1b
 
 require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-github/v53 v53.2.0
 	github.com/gotd/td v0.84.0
 	github.com/u2takey/ffmpeg-go v0.5.0
-	github.com/wader/goutubedl v0.0.0-00010101000000-000000000000
+	github.com/wader/goutubedl v0.0.0-20230815212531-02ec4fe77de3
 	golang.org/x/exp v0.0.0-20230116083435-1de6713980de
 )
 
