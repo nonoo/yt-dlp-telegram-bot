@@ -11,12 +11,10 @@ import (
 
 const downloadAndConvertTimeout = 5 * time.Minute
 
-type ProbeStartCallbackFunc func(ctx context.Context)
 type ConvertStartCallbackFunc func(ctx context.Context, videoCodecs, audioCodecs, convertActionsNeeded string)
 type UpdateProgressPercentCallbackFunc func(progressStr string, progressPercent int)
 
 type Downloader struct {
-	ProbeStartFunc            ProbeStartCallbackFunc
 	ConvertStartFunc          ConvertStartCallbackFunc
 	UpdateProgressPercentFunc UpdateProgressPercentCallbackFunc
 }
@@ -33,6 +31,7 @@ func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadC
 		Type:     goutubedl.TypeSingle,
 		DebugLog: goYouTubeDLLogger{},
 		// StderrFn:          func(cmd *exec.Cmd) io.Writer { return io.Writer(os.Stdout) },
+		NoInfoDownload:    true,
 		MergeOutputFormat: "mkv",     // This handles VP9 properly. yt-dlp uses mp4 by default, which doesn't.
 		SortingFormat:     "res:720", // Prefer videos no larger than 720p to keep their size small.
 	})
@@ -56,10 +55,6 @@ func (d *Downloader) DownloadAndConvertURL(ctx context.Context, url string) (r i
 
 	conv := Converter{
 		UpdateProgressPercentCallback: d.UpdateProgressPercentFunc,
-	}
-
-	if d.ProbeStartFunc != nil {
-		d.ProbeStartFunc(ctx)
 	}
 
 	if err := conv.Probe(rr); err != nil {

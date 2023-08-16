@@ -195,9 +195,6 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 	qEntry.editReply(ctx, processStartStr)
 
 	downloader := Downloader{
-		ProbeStartFunc: func(ctx context.Context) {
-			qEntry.editReply(ctx, "🎬 Getting video format...")
-		},
 		ConvertStartFunc: func(ctx context.Context, videoCodecs, audioCodecs, convertActionsNeeded string) {
 			q.currentlyDownloadedEntry.sourceCodecInfo = "🎬 Source: " + videoCodecs
 			if audioCodecs == "" {
