@@ -30,8 +30,9 @@ func (l goYouTubeDLLogger) Print(v ...interface{}) {
 
 func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadCloser, err error) {
 	result, err := goutubedl.New(dlCtx, url, goutubedl.Options{
-		Type:              goutubedl.TypeSingle,
-		DebugLog:          goYouTubeDLLogger{},
+		Type:     goutubedl.TypeSingle,
+		DebugLog: goYouTubeDLLogger{},
+		// StderrFn:          func(cmd *exec.Cmd) io.Writer { return io.Writer(os.Stdout) },
 		MergeOutputFormat: "mkv",     // This handles VP9 properly. yt-dlp uses mp4 by default, which doesn't.
 		SortingFormat:     "res:720", // Prefer videos no larger than 720p to keep their size small.
 	})
