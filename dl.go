@@ -31,7 +31,6 @@ func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadC
 		Type:     goutubedl.TypeSingle,
 		DebugLog: goYouTubeDLLogger{},
 		// StderrFn:          func(cmd *exec.Cmd) io.Writer { return io.Writer(os.Stdout) },
-		NoInfoDownload:    true,
 		MergeOutputFormat: "mkv",     // This handles VP9 properly. yt-dlp uses mp4 by default, which doesn't.
 		SortingFormat:     "res:720", // Prefer videos no larger than 720p to keep their size small.
 	})
