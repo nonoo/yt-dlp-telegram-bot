@@ -129,7 +129,7 @@ func (p *paramsType) Init() error {
 		if err != nil {
 			return fmt.Errorf("allowed group ids contains invalid group ID: " + idStr)
 		}
-		p.AllowedGroupIDs = append(p.AllowedUserIDs, id)
+		p.AllowedGroupIDs = append(p.AllowedGroupIDs, id)
 	}
 
 	if maxSize == "" {
