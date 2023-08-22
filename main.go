@@ -77,20 +77,21 @@ func handleMsg(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage
 	}
 
 	// Check if message is a command.
-	if msg.Message[0] == '/' {
+	if msg.Message[0] == '/' || msg.Message[0] == '!' {
 		cmd := strings.Split(msg.Message, " ")[0]
 		if strings.Contains(cmd, "@") {
 			cmd = strings.Split(cmd, "@")[0]
 		}
 		msg.Message = strings.TrimPrefix(msg.Message, cmd+" ")
+		cmd = cmd[1:] // Cutting the command character.
 		switch cmd {
-		case "/dlp":
+		case "dlp":
 			handleCmdDLP(ctx, entities, u, msg)
 			return nil
-		case "/dlpcancel":
+		case "dlpcancel":
 			handleCmdDLPCancel(ctx, entities, u, msg)
 			return nil
-		case "/start":
+		case "start":
 			fmt.Println("  (start cmd)")
 			if fromGroup == nil {
 				_, _ = telegramSender.Reply(entities, u).Text(ctx, "🤖 Welcome! This bot downloads videos from various "+
