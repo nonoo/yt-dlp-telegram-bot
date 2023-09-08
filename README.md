@@ -89,7 +89,8 @@ cookie file.
 
 ## Supported commands
 
-- `/dlp` - Download
+- `/dlp` - Download given URL. If the first attribute is "mp3" then only the
+  audio stream will be downloaded and converted (if needed) to 320k MP3
 - `/dlpcancel` - Cancel ongoing download
 
 You don't need to enter the `/dlp` command if you send an URL to the bot using

@@ -21,7 +21,8 @@ const maxProgressPercentUpdateInterval = time.Second
 const progressBarLength = 10
 
 type DownloadQueueEntry struct {
-	URL string
+	URL    string
+	Format string
 
 	OrigEntities  tg.Entities
 	OrigMsgUpdate *tg.UpdateNewMessage
@@ -87,7 +88,7 @@ func (e *DownloadQueue) getQueuePositionString(pos int) string {
 	return "👨‍👦‍👦 Request queued at position #" + fmt.Sprint(pos)
 }
 
-func (q *DownloadQueue) Add(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, url string) {
+func (q *DownloadQueue) Add(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, url, format string) {
 	q.mutex.Lock()
 
 	var replyStr string
@@ -100,6 +101,7 @@ func (q *DownloadQueue) Add(ctx context.Context, entities tg.Entities, u *tg.Upd
 
 	newEntry := DownloadQueueEntry{
 		URL:           url,
+		Format:        format,
 		OrigEntities:  entities,
 		OrigMsgUpdate: u,
 		OrigMsg:       u.Message.(*tg.Message),
@@ -200,7 +202,10 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 			if audioCodecs == "" {
 				q.currentlyDownloadedEntry.sourceCodecInfo += ", no audio"
 			} else {
-				q.currentlyDownloadedEntry.sourceCodecInfo += " / " + audioCodecs
+				if videoCodecs != "" {
+					q.currentlyDownloadedEntry.sourceCodecInfo += " / "
+				}
+				q.currentlyDownloadedEntry.sourceCodecInfo += audioCodecs
 			}
 			if convertActionsNeeded == "" {
 				q.currentlyDownloadedEntry.sourceCodecInfo += " (no conversion needed)"
@@ -212,7 +217,7 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 		UpdateProgressPercentFunc: q.HandleProgressPercentUpdate,
 	}
 
-	r, err := downloader.DownloadAndConvertURL(qEntry.Ctx, qEntry.OrigMsg.Message)
+	r, outputFormat, title, err := downloader.DownloadAndConvertURL(qEntry.Ctx, qEntry.OrigMsg.Message, qEntry.Format)
 	if err != nil {
 		fmt.Println("  error downloading:", err)
 		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()
@@ -228,7 +233,7 @@ func (q *DownloadQueue) processQueueEntry(ctx context.Context, qEntry *DownloadQ
 	q.updateProgress(ctx, qEntry, processStr, q.currentlyDownloadedEntry.lastProgressPercent)
 	q.currentlyDownloadedEntry.progressPercentUpdateMutex.Unlock()
 
-	err = dlUploader.UploadFile(qEntry.Ctx, qEntry.OrigEntities, qEntry.OrigMsgUpdate, r)
+	err = dlUploader.UploadFile(qEntry.Ctx, qEntry.OrigEntities, qEntry.OrigMsgUpdate, r, outputFormat, title)
 	if err != nil {
 		fmt.Println("  error processing:", err)
 		q.currentlyDownloadedEntry.progressPercentUpdateMutex.Lock()

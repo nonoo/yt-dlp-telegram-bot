@@ -22,6 +22,13 @@ var telegramUploader *uploader.Uploader
 var telegramSender *message.Sender
 
 func handleCmdDLP(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, msg *tg.Message) {
+	format := "video"
+	s := strings.Split(msg.Message, " ")
+	if len(s) >= 2 && s[0] == "mp3" {
+		msg.Message = strings.Join(s[1:], " ")
+		format = "mp3"
+	}
+
 	// Check if message is an URL.
 	validURI := true
 	uri, err := url.ParseRequestURI(msg.Message)
@@ -39,7 +46,7 @@ func handleCmdDLP(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMess
 		return
 	}
 
-	dlQueue.Add(ctx, entities, u, msg.Message)
+	dlQueue.Add(ctx, entities, u, msg.Message, format)
 }
 
 func handleCmdDLPCancel(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage, msg *tg.Message) {

@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/dustin/go-humanize v1.0.1
+	github.com/flytam/filenamify v1.2.0
 	github.com/google/go-github/v53 v53.2.0
 	github.com/gotd/td v0.84.0
 	github.com/u2takey/ffmpeg-go v0.5.0

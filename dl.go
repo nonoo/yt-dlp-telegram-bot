@@ -26,7 +26,7 @@ func (l goYouTubeDLLogger) Print(v ...interface{}) {
 	fmt.Println(v...)
 }
 
-func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadCloser, err error) {
+func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadCloser, title string, err error) {
 	result, err := goutubedl.New(dlCtx, url, goutubedl.Options{
 		Type:     goutubedl.TypeSingle,
 		DebugLog: goYouTubeDLLogger{},
@@ -35,39 +35,40 @@ func (d *Downloader) downloadURL(dlCtx context.Context, url string) (rr *ReReadC
 		SortingFormat:     "res:720", // Prefer videos no larger than 720p to keep their size small.
 	})
 	if err != nil {
-		return nil, fmt.Errorf("preparing download %q: %w", url, err)
+		return nil, "", fmt.Errorf("preparing download %q: %w", url, err)
 	}
 
 	dlResult, err := result.Download(dlCtx, "")
 	if err != nil {
-		return nil, fmt.Errorf("downloading %q: %w", url, err)
+		return nil, "", fmt.Errorf("downloading %q: %w", url, err)
 	}
 
-	return NewReReadCloser(dlResult), nil
+	return NewReReadCloser(dlResult), result.Info.Title, nil
 }
 
-func (d *Downloader) DownloadAndConvertURL(ctx context.Context, url string) (r io.ReadCloser, err error) {
-	rr, err := d.downloadURL(ctx, url)
+func (d *Downloader) DownloadAndConvertURL(ctx context.Context, url, format string) (r io.ReadCloser, outputFormat, title string, err error) {
+	rr, title, err := d.downloadURL(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 
 	conv := Converter{
+		Format:                        format,
 		UpdateProgressPercentCallback: d.UpdateProgressPercentFunc,
 	}
 
 	if err := conv.Probe(rr); err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 
 	if d.ConvertStartFunc != nil {
 		d.ConvertStartFunc(ctx, conv.VideoCodecs, conv.AudioCodecs, conv.GetActionsNeeded())
 	}
 
-	r, err = conv.ConvertIfNeeded(ctx, rr)
+	r, outputFormat, err = conv.ConvertIfNeeded(ctx, rr)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 
-	return r, nil
+	return r, outputFormat, title, nil
 }

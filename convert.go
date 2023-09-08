@@ -40,6 +40,8 @@ type ffmpegProbeData struct {
 }
 
 type Converter struct {
+	Format string
+
 	VideoCodecs             string
 	VideoConvertNeeded      bool
 	SingleVideoStreamNeeded bool
@@ -76,10 +78,19 @@ func (c *Converter) Probe(rr *ReReadCloser) error {
 		fmt.Println("    error parsing duration:", err)
 	}
 
+	compatibleVideoCodecsCopy := compatibleVideoCodecs
+	if c.Format == "mp3" {
+		compatibleVideoCodecsCopy = []string{}
+	}
+	compatibleAudioCodecsCopy := compatibleAudioCodecs
+	if c.Format == "mp3" {
+		compatibleAudioCodecsCopy = []string{"mp3"}
+	}
+
 	gotVideoStream := false
 	gotAudioStream := false
 	for _, stream := range pd.Streams {
-		if stream.CodecType == "video" {
+		if stream.CodecType == "video" && len(compatibleVideoCodecsCopy) > 0 {
 			if c.VideoCodecs != "" {
 				c.VideoCodecs += ", "
 			}
@@ -107,7 +118,7 @@ func (c *Converter) Probe(rr *ReReadCloser) error {
 				fmt.Println("    got additional audio stream")
 				c.SingleAudioStreamNeeded = true
 			} else if !c.AudioConvertNeeded {
-				if !slices.Contains(compatibleAudioCodecs, stream.CodecName) {
+				if !slices.Contains(compatibleAudioCodecsCopy, stream.CodecName) {
 					fmt.Println("    found not compatible audio codec:", stream.CodecName)
 					c.AudioConvertNeeded = true
 				} else {
@@ -118,7 +129,7 @@ func (c *Converter) Probe(rr *ReReadCloser) error {
 		}
 	}
 
-	if !gotVideoStream {
+	if len(compatibleVideoCodecsCopy) > 0 && !gotVideoStream {
 		return fmt.Errorf("no video stream found in file")
 	}
 
@@ -181,33 +192,55 @@ func (c *Converter) GetActionsNeeded() string {
 	return strings.Join(convertNeeded, ", ")
 }
 
-func (c *Converter) ConvertIfNeeded(ctx context.Context, rr *ReReadCloser) (io.ReadCloser, error) {
+func (c *Converter) ConvertIfNeeded(ctx context.Context, rr *ReReadCloser) (reader io.ReadCloser, outputFormat string, err error) {
 	reader, writer := io.Pipe()
 	var cmd *Cmd
 
 	fmt.Print("  converting ", c.GetActionsNeeded(), "...\n")
 
-	args := ffmpeg_go.KwArgs{"format": "mp4", "movflags": "frag_keyframe+empty_moov+faststart"}
+	videoNeeded := true
+	outputFormat = "mp4"
+	if c.Format == "mp3" {
+		videoNeeded = false
+		outputFormat = "mp3"
+	}
 
-	if c.VideoConvertNeeded {
-		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:v": "libx264", "crf": 30, "preset": "veryfast"}})
+	args := ffmpeg_go.KwArgs{"format": outputFormat}
+
+	if videoNeeded {
+		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"movflags": "frag_keyframe+empty_moov+faststart"}})
+
+		if c.VideoConvertNeeded {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:v": "libx264", "crf": 30, "preset": "veryfast"}})
+		} else {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:v": "copy"}})
+		}
 	} else {
-		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:v": "copy"}})
+		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"vn": ""}})
 	}
 
 	if c.AudioConvertNeeded {
-		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:a": "mp3", "q:a": 0}})
+		if c.Format == "mp3" {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:a": "mp3", "b:a": "320k"}})
+		} else {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:a": "mp3", "q:a": 0}})
+		}
 	} else {
 		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"c:a": "copy"}})
 	}
 
-	if c.SingleVideoStreamNeeded || c.SingleAudioStreamNeeded {
-		args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"map": "0:v:0,0:a:0"}})
+	if videoNeeded {
+		if c.SingleVideoStreamNeeded || c.SingleAudioStreamNeeded {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"map": "0:v:0,0:a:0"}})
+		}
+	} else {
+		if c.SingleAudioStreamNeeded {
+			args = ffmpeg_go.MergeKwArgs([]ffmpeg_go.KwArgs{args, {"map": "0:a:0"}})
+		}
 	}
 
 	ff := ffmpeg_go.Input("pipe:0").Output("pipe:1", args)
 
-	var err error
 	var progressSock net.Listener
 	if c.UpdateProgressPercentCallback != nil {
 		if c.Duration > 0 {
@@ -239,8 +272,8 @@ func (c *Converter) ConvertIfNeeded(ctx context.Context, rr *ReReadCloser) (io.R
 
 	if err != nil {
 		writer.Close()
-		return nil, fmt.Errorf("error converting: %w", err)
+		return nil, outputFormat, fmt.Errorf("error converting: %w", err)
 	}
 
-	return reader, nil
+	return reader, outputFormat, nil
 }
