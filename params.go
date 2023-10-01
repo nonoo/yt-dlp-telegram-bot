@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -78,10 +77,6 @@ func (p *paramsType) Init() error {
 	}
 	if goutubedl.Path == "" {
 		goutubedl.Path = "yt-dlp"
-	}
-	goutubedl.Path, err = exec.LookPath(goutubedl.Path)
-	if err != nil {
-		return fmt.Errorf("yt-dlp not found")
 	}
 
 	if allowedUserIDs == "" {

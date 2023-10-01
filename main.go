@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
+	"github.com/wader/goutubedl"
 	"golang.org/x/exp/slices"
 )
 
@@ -159,6 +161,14 @@ func main() {
 
 		telegramUploader = uploader.NewUploader(api).WithProgress(dlUploader)
 		telegramSender = message.NewSender(api).WithUploader(telegramUploader)
+
+		goutubedl.Path, err = exec.LookPath(goutubedl.Path)
+		if err != nil {
+			goutubedl.Path, err = ytdlpDownloadLatest(ctx)
+			if err != nil {
+				panic(fmt.Sprint("error: ", err))
+			}
+		}
 
 		dlQueue.Init(ctx)
 
