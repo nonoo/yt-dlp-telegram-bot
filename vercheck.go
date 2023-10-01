@@ -120,19 +120,19 @@ func ytdlpVersionCheck(ctx context.Context) (latestVersion, currentVersion strin
 	return
 }
 
-func ytdlpVersionCheckGetStr(ctx context.Context) (res string, updateNeededOrError bool) {
+func ytdlpVersionCheckGetStr(ctx context.Context) (res string, updateNeeded, gotError bool) {
 	verCheckCtx, verCheckCtxCancel := context.WithTimeout(ctx, ytdlpVersionCheckTimeout)
 	defer verCheckCtxCancel()
 
 	var latestVersion, currentVersion string
 	var err error
 	if latestVersion, currentVersion, err = ytdlpVersionCheck(verCheckCtx); err != nil {
-		return errorStr + ": " + err.Error(), true
+		return errorStr + ": " + err.Error(), false, true
 	}
 
-	updateNeededOrError = currentVersion != latestVersion
+	updateNeeded = currentVersion != latestVersion
 	res = "yt-dlp version: " + currentVersion
-	if updateNeededOrError {
+	if updateNeeded {
 		res = "📢 " + res + " 📢 Update needed! Latest version is " + latestVersion + " 📢"
 	} else {
 		res += " (up to date)"

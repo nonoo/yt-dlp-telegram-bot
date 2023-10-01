@@ -176,14 +176,29 @@ func main() {
 
 		fmt.Println("telegram connection up")
 
-		ytdlpVersionCheckStr, _ := ytdlpVersionCheckGetStr(ctx)
+		ytdlpVersionCheckStr, updateNeeded, _ := ytdlpVersionCheckGetStr(ctx)
+		if updateNeeded {
+			goutubedl.Path, err = ytdlpDownloadLatest(ctx)
+			if err != nil {
+				panic(fmt.Sprint("error: ", err))
+			}
+			ytdlpVersionCheckStr, _, _ = ytdlpVersionCheckGetStr(ctx)
+		}
 		sendTextToAdmins(ctx, "🤖 Bot started, "+ytdlpVersionCheckStr)
 
 		go func() {
 			for {
 				time.Sleep(24 * time.Hour)
-				if s, updateNeededOrError := ytdlpVersionCheckGetStr(ctx); updateNeededOrError {
+				s, updateNeeded, gotError := ytdlpVersionCheckGetStr(ctx)
+				if gotError {
 					sendTextToAdmins(ctx, s)
+				} else if updateNeeded {
+					goutubedl.Path, err = ytdlpDownloadLatest(ctx)
+					if err != nil {
+						panic(fmt.Sprint("error: ", err))
+					}
+					ytdlpVersionCheckStr, _, _ = ytdlpVersionCheckGetStr(ctx)
+					sendTextToAdmins(ctx, "🤖 Bot updated, "+ytdlpVersionCheckStr)
 				}
 			}
 		}()
