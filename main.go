@@ -88,10 +88,10 @@ func handleMsg(ctx context.Context, entities tg.Entities, u *tg.UpdateNewMessage
 	// Check if message is a command.
 	if msg.Message[0] == '/' || msg.Message[0] == '!' {
 		cmd := strings.Split(msg.Message, " ")[0]
+		msg.Message = strings.TrimPrefix(msg.Message, cmd+" ")
 		if strings.Contains(cmd, "@") {
 			cmd = strings.Split(cmd, "@")[0]
 		}
-		msg.Message = strings.TrimPrefix(msg.Message, cmd+" ")
 		cmd = cmd[1:] // Cutting the command character.
 		switch cmd {
 		case "dlp":
